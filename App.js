@@ -35,15 +35,25 @@ const SPEEDS = {
 
 const App: () => React$Node = () => {
   const coord = useRef(new Animated.ValueXY({x: 200, y: 200})).current;
+  const rotate = useRef(new Animated.Value(0)).current;
   const [speed, setSpeed] = useState(MAX_DURATION / 2);
 
   const handleTouch = (event) => {
     const {locationX: x, locationY: y} = event.nativeEvent;
-    Animated.timing(coord, {
-      duration: speed,
-      toValue: {x, y},
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.timing(coord, {
+        duration: speed,
+        toValue: {x, y},
+        useNativeDriver: true,
+      }),
+      Animated.timing(rotate, {
+        toValue: 1,
+        duration: speed,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      rotate.setValue(0);
+    });
   };
 
   const handleSliderValueChanged = (value) => {
@@ -70,6 +80,12 @@ const App: () => React$Node = () => {
                   {translateY: coord.y},
                   {translateX: -SQUARE_SIZE / 2},
                   {translateY: -SQUARE_SIZE / 2},
+                  {
+                    rotate: rotate.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '360deg'],
+                    }),
+                  },
                 ],
               }}
             />
