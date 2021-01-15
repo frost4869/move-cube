@@ -6,14 +6,16 @@
  * @flow strict-local
  */
 
-import React, {useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   Animated,
   Dimensions,
+  Platform,
   Pressable,
   SafeAreaView,
   StatusBar,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -24,40 +26,73 @@ const WIDTH = Dimensions.get('screen').width;
 
 const SQUARE_SIZE = 50;
 const MAX_DURATION = 2000; // 2s
+const MIN_DURATION = 80;
 const STEPS = MAX_DURATION / 4;
 const SLIDER_WIDTH = WIDTH * 0.8;
 const SLIDER_HEIGHT = 70;
-const SETTING_BUTTON_SIZE = 40;
-const SPEED_INDICATOR_WIDTH = 90;
+const SETTING_BUTTON_SIZE = 50;
 
+// reverse slider value
 const SPEEDS = {
-  0: 'Fastest',
-  1: 'Fast',
+  4: 'Fastest',
+  3: 'Fast',
   2: 'Medium',
-  3: 'Slow',
-  4: 'Slowest',
+  1: 'Slow',
+  0: 'Slowest',
 };
 
 const App: () => React$Node = () => {
   const coord = useRef(new Animated.ValueXY({x: 200, y: 200})).current;
   const rotate = useRef(new Animated.Value(0)).current;
-  const sliderAnimatedValue = useRef(new Animated.Value(0)).current; // slider hiding
+  const sliderAnimatedValue = useRef(new Animated.Value(0)).current;
+  const zoomAnimatedValue = useRef(new Animated.Value(0)).current;
 
   const [speed, setSpeed] = useState(MAX_DURATION / 2);
-  const speedAnimatedValue = useRef(new Animated.Value(speed)).current;
   const [isOpenSlider, setIsOpenSlider] = useState(false);
+  const [isSliding, setIsSliding] = useState(false);
+
+  let timer = useRef(null);
+
+  useEffect(() => {
+    if (isSliding) {
+      Animated.timing(zoomAnimatedValue, {
+        duration: 150,
+        toValue: 1.05,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(zoomAnimatedValue, {
+        duration: 150,
+        toValue: 1,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isSliding]);
+
+  useEffect(() => {
+    Animated.timing(sliderAnimatedValue, {
+      toValue: isOpenSlider ? 1 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [isOpenSlider]);
 
   const handleTouch = (event) => {
+    // close slider when touch out side
+    clearTimeout(timer.current);
+    setIsOpenSlider(false);
+
+    // start cube animation
     const {locationX: x, locationY: y} = event.nativeEvent;
     Animated.parallel([
       Animated.timing(coord, {
-        duration: speed,
+        duration: MAX_DURATION + MIN_DURATION - speed, // reverse slider value
         toValue: {x, y},
         useNativeDriver: true,
       }),
       Animated.timing(rotate, {
         toValue: 1,
-        duration: speed,
+        duration: MAX_DURATION + MIN_DURATION - speed,
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -65,19 +100,36 @@ const App: () => React$Node = () => {
     });
   };
 
+  // called when sliding
   const handleSliderValueChanged = (value) => {
+    if (!isSliding) {
+      setIsSliding(true);
+    }
+    clearTimeout(timer.current);
     setSpeed(value);
-    speedAnimatedValue.setValue(value);
+  };
+  // called when finished slide
+  const onSliderCompleted = () => {
+    setIsSliding(false);
+    timer.current = setTimeout(() => {
+      setIsOpenSlider(false);
+    }, 1500); // hide slider after finished sliding
   };
 
+  // handle toggle slider in / out
   const handleToggleSpeedSlider = () => {
-    Animated.timing(sliderAnimatedValue, {
-      toValue: isOpenSlider ? 0 : 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
     setIsOpenSlider(!isOpenSlider);
   };
+
+  // animated values here
+  const squareRotate = rotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+  const sliderTranslateX = sliderAnimatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-SLIDER_HEIGHT, 8],
+  });
 
   return (
     <>
@@ -98,12 +150,7 @@ const App: () => React$Node = () => {
                   {translateY: coord.y},
                   {translateX: -SQUARE_SIZE / 2},
                   {translateY: -SQUARE_SIZE / 2},
-                  {
-                    rotate: rotate.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0deg', '360deg'],
-                    }),
-                  },
+                  {rotate: squareRotate},
                 ],
               }}
             />
@@ -115,55 +162,38 @@ const App: () => React$Node = () => {
               ...styles.sliderSettingContainer,
               ...styles.shadow,
               transform: [
-                {
-                  translateX: sliderAnimatedValue.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-SLIDER_HEIGHT, 0],
-                  }),
-                },
+                {translateX: sliderTranslateX},
+                {scale: zoomAnimatedValue},
               ],
             }}>
             {/* SLIDER */}
-            <VerticalSlider
-              value={speed}
-              min={0}
-              max={MAX_DURATION}
-              onChange={handleSliderValueChanged}
-              width={SLIDER_HEIGHT}
-              height={SLIDER_WIDTH}
-              step={STEPS}
-              minimumTrackTintColor={'gray'}
-              maximumTrackTintColor={'tomato'}
-              showBallIndicator={false}
-              ballIndicatorPosition={0}
-              borderRadius={0}
-            />
+            <View>
+              <VerticalSlider
+                value={speed}
+                min={MIN_DURATION}
+                max={MAX_DURATION}
+                step={1}
+                onChange={handleSliderValueChanged}
+                onComplete={onSliderCompleted}
+                width={SLIDER_HEIGHT}
+                height={SLIDER_WIDTH}
+                minimumTrackTintColor={'#929aab'}
+                maximumTrackTintColor={'#393e46'}
+                showBallIndicator={false}
+                ballIndicatorPosition={0}
+                borderRadius={0}
+              />
+              <Text style={styles.speedText}>
+                {SPEEDS[(speed / STEPS).toFixed(0)]}
+              </Text>
+            </View>
 
-            {/* <View
-              style={{
-                width: SPEED_INDICATOR_WIDTH,
-                overflow: 'hidden',
-                marginLeft: 8,
-              }}>
-              <Animated.View
-                style={{
-                  flexDirection: 'row',
-                  transform: [
-                    {
-                      translateX: (speed / STEPS) * -SPEED_INDICATOR_WIDTH,
-                    },
-                  ],
-                }}>
-                {Object.values(SPEEDS).map((e, i) => (
-                  <Text key={i} style={styles.stepIndicator}>
-                    {e}
-                  </Text>
-                ))}
-              </Animated.View>
-            </View> */}
             {/* SETTING BUTTON */}
             <Pressable
-              style={styles.settingBtn}
+              style={{
+                ...styles.settingBtn,
+                ...Platform.select({android: styles.shadow}), // fix android shadow
+              }}
               onPress={handleToggleSpeedSlider}>
               <Icon name="settings" size={24} />
             </Pressable>
@@ -186,44 +216,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'whitesmoke',
   },
   square: {
-    backgroundColor: '#bf0000',
+    backgroundColor: '#ef4f4f',
     width: SQUARE_SIZE,
     height: SQUARE_SIZE,
     borderRadius: 5,
-  },
-  slider: {
-    width: SLIDER_WIDTH,
-    height: SLIDER_HEIGHT,
-    backgroundColor: '#fff',
-    transform: [
-      {rotate: '-90deg'},
-      {
-        translateY: -(
-          SLIDER_WIDTH / 2 +
-          SLIDER_HEIGHT / 2 +
-          SETTING_BUTTON_SIZE
-        ),
-      },
-      {
-        translateX: -(SLIDER_WIDTH / 2 - SLIDER_HEIGHT / 2),
-      },
-    ],
-  },
-  stepIndicator: {
-    letterSpacing: 1.2,
-    height: 20,
-    fontWeight: 'bold',
-    width: SPEED_INDICATOR_WIDTH,
-    textAlign: 'center',
-    backgroundColor: 'red',
   },
   settingBtn: {
     backgroundColor: '#fff',
     width: SETTING_BUTTON_SIZE,
     height: SETTING_BUTTON_SIZE,
 
-    borderTopEndRadius: 20,
-    borderBottomEndRadius: 20,
+    borderTopEndRadius: SETTING_BUTTON_SIZE / 2,
+    borderBottomEndRadius: SETTING_BUTTON_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -245,6 +249,20 @@ const styles = StyleSheet.create({
     shadowRadius: 4.65,
 
     elevation: 8,
+  },
+  speedText: {
+    position: 'absolute',
+    bottom: Platform.select({
+      ios: 10,
+      android: -20,
+    }), // android overflow not showing bug
+    fontWeight: 'bold',
+    color: Platform.select({
+      android: '#393e46',
+      ios: '#eeeeee',
+    }),
+    textAlign: 'center',
+    width: '100%',
   },
 });
 
