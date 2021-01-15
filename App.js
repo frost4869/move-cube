@@ -25,11 +25,11 @@ import VerticalSlider from 'rn-vertical-slider';
 const WIDTH = Dimensions.get('screen').width;
 
 const SQUARE_SIZE = 50;
-const MAX_DURATION = 2000; // 2s
-const MIN_DURATION = 80;
-const STEPS = MAX_DURATION / 4;
-const SLIDER_WIDTH = WIDTH * 0.8;
-const SLIDER_HEIGHT = 70;
+const MAX_DURATION = 2000;
+const MIN_DURATION = 150;
+const STEPS = (MAX_DURATION - MIN_DURATION) / 4;
+const SLIDER_WIDTH = 70;
+const SLIDER_HEIGHT = WIDTH * 0.8;
 const SETTING_BUTTON_SIZE = 50;
 
 // reverse slider value
@@ -47,7 +47,7 @@ const App: () => React$Node = () => {
   const sliderAnimatedValue = useRef(new Animated.Value(0)).current;
   const zoomAnimatedValue = useRef(new Animated.Value(0)).current;
 
-  const [speed, setSpeed] = useState(MAX_DURATION / 2);
+  const [speed, setSpeed] = useState(MAX_DURATION - MIN_DURATION / 2);
   const [isOpenSlider, setIsOpenSlider] = useState(false);
   const [isSliding, setIsSliding] = useState(false);
 
@@ -128,7 +128,7 @@ const App: () => React$Node = () => {
   });
   const sliderTranslateX = sliderAnimatedValue.interpolate({
     inputRange: [0, 1],
-    outputRange: [-SLIDER_HEIGHT, 8],
+    outputRange: [-SLIDER_WIDTH, 8],
   });
 
   return (
@@ -144,7 +144,6 @@ const App: () => React$Node = () => {
             <Animated.View
               style={{
                 ...styles.square,
-                position: 'absolute',
                 transform: [
                   {translateX: coord.x},
                   {translateY: coord.y},
@@ -175,8 +174,8 @@ const App: () => React$Node = () => {
                 step={1}
                 onChange={handleSliderValueChanged}
                 onComplete={onSliderCompleted}
-                width={SLIDER_HEIGHT}
-                height={SLIDER_WIDTH}
+                width={SLIDER_WIDTH}
+                height={SLIDER_HEIGHT}
                 minimumTrackTintColor={'#929aab'}
                 maximumTrackTintColor={'#393e46'}
                 showBallIndicator={false}
@@ -184,7 +183,7 @@ const App: () => React$Node = () => {
                 borderRadius={0}
               />
               <Text style={styles.speedText}>
-                {SPEEDS[(speed / STEPS).toFixed(0)]}
+                {SPEEDS[((speed - MIN_DURATION) / STEPS).toFixed(0)]}
               </Text>
             </View>
 
@@ -220,6 +219,7 @@ const styles = StyleSheet.create({
     width: SQUARE_SIZE,
     height: SQUARE_SIZE,
     borderRadius: 5,
+    position: 'absolute',
   },
   settingBtn: {
     backgroundColor: '#fff',
