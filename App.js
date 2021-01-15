@@ -6,7 +6,7 @@
  * @flow strict-local
  */
 
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Animated,
   Dimensions,
@@ -31,6 +31,7 @@ const STEPS = (MAX_DURATION - MIN_DURATION) / 4;
 const SLIDER_WIDTH = 70;
 const SLIDER_HEIGHT = WIDTH * 0.8;
 const SETTING_BUTTON_SIZE = 50;
+const TRAILS = 10; // number of after images, 4 - 10 is optimal, dont use too much
 
 // reverse slider value
 const SPEEDS = {
@@ -42,17 +43,23 @@ const SPEEDS = {
 };
 
 const App: () => React$Node = () => {
-  const coord = useRef(new Animated.ValueXY({x: 200, y: 200})).current;
+  // create array of cubes animation value to implement trails effect
+  const animatedValueArray = Array.from(
+    Array(TRAILS),
+    (e, i) => useRef(new Animated.ValueXY({x: 200, y: 200})).current,
+  );
+
   const rotate = useRef(new Animated.Value(0)).current;
   const sliderAnimatedValue = useRef(new Animated.Value(0)).current;
   const zoomAnimatedValue = useRef(new Animated.Value(0)).current;
 
-  const [speed, setSpeed] = useState(MAX_DURATION - MIN_DURATION / 2);
+  const [speed, setSpeed] = useState((MAX_DURATION + MIN_DURATION) / 2);
   const [isOpenSlider, setIsOpenSlider] = useState(false);
   const [isSliding, setIsSliding] = useState(false);
 
   let timer = useRef(null);
 
+  // zoom the slider a bit when sliding
   useEffect(() => {
     if (isSliding) {
       Animated.timing(zoomAnimatedValue, {
@@ -69,6 +76,7 @@ const App: () => React$Node = () => {
     }
   }, [isSliding]);
 
+  // slide in out animation
   useEffect(() => {
     Animated.timing(sliderAnimatedValue, {
       toValue: isOpenSlider ? 1 : 0,
@@ -84,12 +92,19 @@ const App: () => React$Node = () => {
 
     // start cube animation
     const {locationX: x, locationY: y} = event.nativeEvent;
-    Animated.parallel([
-      Animated.timing(coord, {
+
+    // create array of timing animation for each after images
+    const animations = animatedValueArray.map((e, index) => {
+      return Animated.timing(animatedValueArray[index], {
         duration: MAX_DURATION + MIN_DURATION - speed, // reverse slider value
         toValue: {x, y},
         useNativeDriver: true,
-      }),
+      });
+    });
+
+    // run array of cube animations with 50ms delay to acheive trail effect
+    Animated.parallel([
+      Animated.stagger(50, animations).start(),
       Animated.timing(rotate, {
         toValue: 1,
         duration: MAX_DURATION + MIN_DURATION - speed,
@@ -131,6 +146,11 @@ const App: () => React$Node = () => {
     outputRange: [-SLIDER_WIDTH, 8],
   });
 
+  const speedLevel = useMemo(
+    () => ((speed - MIN_DURATION) / STEPS).toFixed(0),
+    [speed],
+  );
+
   return (
     <>
       <StatusBar barStyle="dark-content" />
@@ -141,18 +161,25 @@ const App: () => React$Node = () => {
             activeOpacity={1}
             onPress={handleTouch}
             style={styles.touchZone}>
-            <Animated.View
-              style={{
-                ...styles.square,
-                transform: [
-                  {translateX: coord.x},
-                  {translateY: coord.y},
-                  {translateX: -SQUARE_SIZE / 2},
-                  {translateY: -SQUARE_SIZE / 2},
-                  {rotate: squareRotate},
-                ],
-              }}
-            />
+            {/* CUBE */}
+            {Array.from(Array(TRAILS), (e, i) => (
+              <Animated.View
+                key={i}
+                style={{
+                  ...styles.square,
+                  width: SQUARE_SIZE * Math.pow(0.8, i),
+                  height: SQUARE_SIZE * Math.pow(0.8, i),
+                  opacity: Math.pow(0.85, i),
+                  transform: [
+                    {translateX: animatedValueArray[i].x},
+                    {translateY: animatedValueArray[i].y},
+                    {translateX: (-SQUARE_SIZE * Math.pow(0.8, i)) / 2},
+                    {translateY: (-SQUARE_SIZE * Math.pow(0.8, i)) / 2},
+                    {rotate: squareRotate},
+                  ],
+                }}
+              />
+            ))}
           </TouchableOpacity>
 
           {/* SPEED SETTING SLIDER FROM EDGE */}
@@ -179,12 +206,9 @@ const App: () => React$Node = () => {
                 minimumTrackTintColor={'#929aab'}
                 maximumTrackTintColor={'#393e46'}
                 showBallIndicator={false}
-                ballIndicatorPosition={0}
                 borderRadius={0}
               />
-              <Text style={styles.speedText}>
-                {SPEEDS[((speed - MIN_DURATION) / STEPS).toFixed(0)]}
-              </Text>
+              <Text style={styles.speedText}>{SPEEDS[speedLevel]}</Text>
             </View>
 
             {/* SETTING BUTTON */}
