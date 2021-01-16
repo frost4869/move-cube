@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import VerticalSlider from 'rn-vertical-slider';
+import ColorSelector from './colorSelector';
 
 const WIDTH = Dimensions.get('screen').width;
 
@@ -53,9 +54,10 @@ const App: () => React$Node = () => {
   const sliderAnimatedValue = useRef(new Animated.Value(0)).current;
   const zoomAnimatedValue = useRef(new Animated.Value(0)).current;
 
-  const [speed, setSpeed] = useState((MAX_DURATION + MIN_DURATION) / 2);
+  const [speed, setSpeed] = useState(MIN_DURATION);
   const [isOpenSlider, setIsOpenSlider] = useState(false);
   const [isSliding, setIsSliding] = useState(false);
+  const [color, setColor] = useState('#ef4f4f');
 
   let timer = useRef(null);
 
@@ -151,78 +153,84 @@ const App: () => React$Node = () => {
     [speed],
   );
 
+  const changeColor = (color) => {
+    setColor(color);
+  };
+
   return (
     <>
       <StatusBar barStyle="dark-content" />
-      <SafeAreaView style={{flex: 1}}>
-        <View style={styles.container}>
-          {/* TOUCH ZONE */}
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={handleTouch}
-            style={styles.touchZone}>
-            {/* CUBE */}
-            {Array.from(Array(TRAILS), (e, i) => (
-              <Animated.View
-                key={i}
-                style={{
-                  ...styles.square,
-                  width: SQUARE_SIZE * Math.pow(0.8, i),
-                  height: SQUARE_SIZE * Math.pow(0.8, i),
-                  opacity: Math.pow(0.85, i),
-                  transform: [
-                    {translateX: animatedValueArray[i].x},
-                    {translateY: animatedValueArray[i].y},
-                    {translateX: (-SQUARE_SIZE * Math.pow(0.8, i)) / 2},
-                    {translateY: (-SQUARE_SIZE * Math.pow(0.8, i)) / 2},
-                    {rotate: squareRotate},
-                  ],
-                }}
-              />
-            ))}
-          </TouchableOpacity>
-
-          {/* SPEED SETTING SLIDER FROM EDGE */}
-          <Animated.View
-            style={{
-              ...styles.sliderSettingContainer,
-              ...styles.shadow,
-              transform: [
-                {translateX: sliderTranslateX},
-                {scale: zoomAnimatedValue},
-              ],
-            }}>
-            {/* SLIDER */}
-            <View>
-              <VerticalSlider
-                value={speed}
-                min={MIN_DURATION}
-                max={MAX_DURATION}
-                step={1}
-                onChange={handleSliderValueChanged}
-                onComplete={onSliderCompleted}
-                width={SLIDER_WIDTH}
-                height={SLIDER_HEIGHT}
-                minimumTrackTintColor={'#929aab'}
-                maximumTrackTintColor={'#393e46'}
-                showBallIndicator={false}
-                borderRadius={0}
-              />
-              <Text style={styles.speedText}>{SPEEDS[speedLevel]}</Text>
-            </View>
-
-            {/* SETTING BUTTON */}
-            <Pressable
+      <View style={styles.container}>
+        {/* TOUCH ZONE */}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={handleTouch}
+          style={styles.touchZone}>
+          {/* CUBE */}
+          {Array.from(Array(TRAILS), (e, i) => (
+            <Animated.View
+              key={i}
               style={{
-                ...styles.settingBtn,
-                ...Platform.select({android: styles.shadow}), // fix android shadow
+                ...styles.square,
+                width: SQUARE_SIZE * Math.pow(0.8, i),
+                height: SQUARE_SIZE * Math.pow(0.8, i),
+                opacity: Math.pow(0.85, i),
+                backgroundColor: color,
+                transform: [
+                  {translateX: animatedValueArray[i].x},
+                  {translateY: animatedValueArray[i].y},
+                  {translateX: (-SQUARE_SIZE * Math.pow(0.8, i)) / 2},
+                  {translateY: (-SQUARE_SIZE * Math.pow(0.8, i)) / 2},
+                  {rotate: squareRotate},
+                ],
               }}
-              onPress={handleToggleSpeedSlider}>
-              <Icon name="settings" size={24} />
-            </Pressable>
-          </Animated.View>
-        </View>
-      </SafeAreaView>
+            />
+          ))}
+        </TouchableOpacity>
+
+        {/* SPEED SETTING SLIDER FROM EDGE */}
+        <Animated.View
+          style={{
+            ...styles.sliderSettingContainer,
+            transform: [
+              {translateX: sliderTranslateX},
+              {scale: zoomAnimatedValue},
+            ],
+          }}>
+          {/* SLIDER */}
+          <View style={{height: isOpenSlider ? '100%' : 0}}>
+            <VerticalSlider
+              min={MIN_DURATION}
+              max={MAX_DURATION}
+              step={1}
+              onChange={handleSliderValueChanged}
+              onComplete={onSliderCompleted}
+              width={SLIDER_WIDTH}
+              height={SLIDER_HEIGHT}
+              minimumTrackTintColor={'#929aab'}
+              maximumTrackTintColor={'#393e46'}
+              showBallIndicator={false}
+              borderRadius={0}
+            />
+            <Text style={styles.speedText}>{SPEEDS[speedLevel]}</Text>
+          </View>
+
+          {/* SETTING BUTTON */}
+          <Pressable
+            style={{
+              ...styles.shadow,
+              ...styles.settingBtn,
+              ...Platform.select({android: styles.shadow}), // fix android shadow
+            }}
+            onPress={handleToggleSpeedSlider}>
+            <Icon name="settings" size={24} />
+          </Pressable>
+        </Animated.View>
+
+        {/* COLOR SELECTOR */}
+        <ColorSelector handleChangeColor={changeColor} />
+      </View>
+      <SafeAreaView style={{backgroundColor: '#fff'}} />
     </>
   );
 };
@@ -239,7 +247,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'whitesmoke',
   },
   square: {
-    backgroundColor: '#ef4f4f',
     width: SQUARE_SIZE,
     height: SQUARE_SIZE,
     borderRadius: 5,

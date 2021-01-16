@@ -12,8 +12,11 @@
     "xc": "xed -b ios"
   },
   "dependencies": {
+    "@gorhom/bottom-sheet": "^2",
     "react": "16.13.1",
     "react-native": "0.63.4",
+    "react-native-gesture-handler": "^1.9.0",
+    "react-native-reanimated": "^1.13.2",
     "react-native-vector-icons": "^7.1.0",
     "rn-vertical-slider": "^2.0.2"
   },
